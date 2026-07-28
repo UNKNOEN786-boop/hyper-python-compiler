@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Hyper Python Compiler v3</title>
+
+<!-- Python Engine -->
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.2/full/pyodide.js"></script>
+
+<!-- CodeMirror -->
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/theme/dracula.min.css">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
+
+<style>
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #0f172a;
+    --panel: #1e293b;
+    --text: #f8fafc;
+    --muted: #94a3b8;
+    --border: #475569;
+    --editor: #282a36;
+}
+
+body.light {
+    --bg: #f1f5f9;
+    --panel: #ffffff;
+    --text: #0f172a;
+    --muted: #475569;
+    --border: #94a3b8;
+    --editor: #ffffff;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: Arial, sans-serif;
+    min-height: 100vh;
+    transition: 0.3s;
+}
+
+header {
+    background: var(--panel);
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+}
+
+header h1 {
+    font-size: 28px;
+}
+
+header p {
+    color: var(--muted);
+    margin-top: 8px;
+}
+
+.top-buttons {
+    margin-top: 15px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+}
+
+.container {
+    width: 95%;
+    max-width: 1100px;
+    margin: 20px auto;
+}
+
+.card {
+    background: var(--panel);
+    padding: 15px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.status {
+    color: #facc15;
+    margin-bottom: 12px;
+}
+
+.editor-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.editor-title span {
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.editor-container {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.CodeMirror {
+    height: 420px;
+    font-size: 16px;
+    font-family: Consolas, monospace;
+}
+
+body.light .CodeMirror {
+    background: white;
+    color: black;
+}
+
+body.light .CodeMirror-gutters {
+    background: #e2e8f0;
+    border-right: 1px solid #94a3b8;
+}
+
+body.light .CodeMirror-linenumber {
+    color: #475569;
+}
+
+.buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+}
+
+button,
+.file-label {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.run {
+    background: #22c55e;
+    color: white;
+}
+
+.clear {
+    background: #ef4444;
+    color: white;
+}
+
+.download {
+    background: #2563eb;
+    color: white;
+}
+
+.open {
+    background: #9333ea;
+    color: white;
+}
+
+.copy {
+    background: #0891b2;
+    color: white;
+}
+
+.theme {
+    background: #f59e0b;
+    color: white;
+}
+
+.example {
+    background: #64748b;
+    color: white;
+}
+
+#fileInput {
+    display: none;
+}
+
+#output {
+    background: #020617;
+    color: #22c55e;
+    padding: 15px;
+    min-height: 180px;
+    border-radius: 8px;
+    font-family: Consolas, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+}
+
+body.light #output {
+    background: #e2e8f0;
+    color: #166534;
+}
+
+.features {
+    color: var(--muted);
+    line-height: 1.8;
+}
+
+.autocomplete-box {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+@media (max-width: 600px) {
+
+    header h1 {
+        font-size: 22px;
+    }
+
+    .CodeMirror {
+        height: 320px;
+        font-size: 14px;
+    }
+
+    button,
+    .file-label {
+        width: 100%;
+    }
+
+    .editor-title {
+        display: block;
+    }
+
+    .editor-title span {
+        display: block;
+        margin-top: 5px;
+    }
+
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+
+<h1>🐍 Hyper Python Compiler v3</h1>
+
+<p>Write • Run • Learn • Build with Python</p>
+
+<div class="top-buttons">
+
+<button class="theme" onclick="toggleTheme()">
+🌙 Dark / ☀️ Light
+</button>
+
+</div>
+
+</header>
+
+
+<div class="container">
+
+
+<div class="card">
+
+<div id="status" class="status">
+⏳ Loading Python Engine...
+</div>
+
+
+<div class="editor-title">
+
+<h2>💻 Python Editor</h2>
+
+<span>Python • Syntax Highlighting • Line Numbers</span>
+
+</div>
+
+
+<div class="editor-container">
+
+<textarea id="code"></textarea>
+
+</div>
+
+
+<div class="autocomplete-box">
+
+💡 Tip: Type Python keywords like
+<code>print</code>,
+<code>def</code>,
+<code>class</code>,
+<code>for</code>,
+<code>while</code>,
+<code>if</code>
+
+</div>
+
+
+<div class="buttons">
+
+<button id="runBtn"
+class="run"
+onclick="runPython()"
+disabled>
+
+▶ Run Python
+
+</button>
+
+
+<button class="clear"
+onclick="clearCode()">
+
+🗑 Clear
+
+</button>
+
+
+<button class="copy"
+onclick="copyCode()">
+
+📋 Copy
+
+</button>
+
+
+<button class="download"
+onclick="downloadPython()">
+
+💾 Download .py
+
+</button>
+
+
+<label
+for="fileInput"
+class="open file-label">
+
+📂 Open .py
+
+</label>
+
+
+<input
+type="file"
+id="fileInput"
+accept=".py,.txt"
+onchange="openPythonFile(event)"
+>
+
+
+<button
+class="example"
+onclick="loadExample()">
+
+📚 Load Example
+
+</button>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>📤 Output</h2>
+
+<br>
+
+<div id="output">
+
+Waiting for Python code...
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>🐍 Python Features</h2>
+
+<br>
+
+<div class="features">
+
+✓ Variables<br>
+✓ Strings<br>
+✓ Numbers<br>
+✓ Lists<br>
+✓ Tuples<br>
+✓ Dictionaries<br>
+✓ Sets<br>
+✓ If / Elif / Else<br>
+✓ For Loops<br>
+✓ While Loops<br>
+✓ Functions<br>
+✓ Classes / OOP<br>
+✓ Try / Except<br>
+✓ Import Modules<br>
+✓ Syntax Highlighting<br>
+✓ Line Numbers<br>
+✓ File Open / Save<br>
+✓ Mobile Friendly
+
+</div>
+
+</div>
+
+</div>
+
+
+<script>
+
+let pyodide = null;
+
+
+/* DEFAULT CODE */
+
+const defaultCode = `# Welcome to Hyper Python Compiler
+
+print("Hello, World!")
+
+# Variables
+
+name = "Hubby"
+age = 20
+
+print("Name:", name)
+print("Age:", age)
+
+
+# Dictionary
+
+student = {
+    "name": "Hubby",
+    "age": 20,
+    "course": "Python"
+}
+
+print(student)
+
+
+# List
+
+fruits = [
+    "Apple",
+    "Banana",
+    "Mango"
+]
+
+for fruit in fruits:
+
+    print("Fruit:", fruit)
+
+
+# Function
+
+def greet(person):
+
+    return "Hello " + person
+
+
+print(greet(name))
+
+
+# If / Else
+
+if age >= 18:
+
+    print("You are an adult")
+
+else:
+
+    print("You are a minor")
+
+
+# Class
+
+class Person:
+
+    def __init__(self, name):
+
+        self.name = name
+
+    def hello(self):
+
+        return "Hello " + self.name
+
+
+person = Person("Hubby")
+
+print(person.hello())
+`;
+
+
+/* CREATE EDITOR */
+
+const editor = CodeMirror.fromTextArea(
+    document.getElementById("code"),
+    {
+        mode: "python",
+        theme: "dracula",
+        lineNumbers: true,
+        autoCloseBrackets: true,
+        matchBrackets: true,
+        indentUnit: 4,
+        tabSize: 4,
+        lineWrapping: true
+    }
+);
+
+
+editor.setValue(defaultCode);
+
+
+/* LOAD PYTHON */
+
+async function loadPython() {
+
+    const status =
+    document.getElementById("status");
+
+    const runBtn =
+    document.getElementById("runBtn");
+
+    try {
+
+        status.innerText =
+        "⏳ Starting Python Engine...";
+
+        pyodide =
+        await loadPyodide();
+
+        status.innerText =
+        "✅ Python Engine Ready!";
+
+        runBtn.disabled = false;
+
+    }
+
+    catch(error) {
+
+        status.innerText =
+        "❌ Python Engine failed to load.";
+
+        console.error(error);
+
+    }
+
+}
+
+
+/* RUN PYTHON */
+
+async function runPython() {
+
+    if (!pyodide) {
+
+        alert(
+        "Python Engine is still loading."
+        );
+
+        return;
+
+    }
+
+    const code =
+    editor.getValue();
+
+    const output =
+    document.getElementById("output");
+
+    output.innerText =
+    "⏳ Running Python code...";
+
+
+    try {
+
+        pyodide.runPython(`
+
+import sys
+
+from io import StringIO
+
+sys.stdout = StringIO()
+
+sys.stderr = StringIO()
+
+        `);
+
+
+        await pyodide.runPythonAsync(code);
+
+
+        const result =
+        pyodide.runPython(`
+
+sys.stdout.getvalue() + sys.stderr.getvalue()
+
+        `);
+
+
+        output.innerText =
+        result ||
+        "✅ Code executed successfully.";
+
+    }
+
+    catch(error) {
+
+        output.innerText =
+        "❌ Python Error:\\n\\n" +
+        error;
+
+    }
+
+}
+
+
+/* CLEAR */
+
+function clearCode() {
+
+    editor.setValue("");
+
+    document.getElementById("output")
+    .innerText =
+    "Output cleared.";
+
+}
+
+
+/* COPY */
+
+async function copyCode() {
+
+    const code =
+    editor.getValue();
+
+    try {
+
+        await navigator.clipboard
+        .writeText(code);
+
+        alert("✅ Code copied!");
+
+    }
+
+    catch(error) {
+
+        alert(
+        "❌ Could not copy code."
+        );
+
+    }
+
+}
+
+
+/* DOWNLOAD */
+
+function downloadPython() {
+
+    const code =
+    editor.getValue();
+
+    const blob =
+    new Blob(
+        [code],
+        {
+            type: "text/plain"
+        }
+    );
+
+    const url =
+    URL.createObjectURL(blob);
+
+    const a =
+    document.createElement("a");
+
+    a.href = url;
+
+    a.download =
+    "hyper_python_program.py";
+
+    document.body.appendChild(a);
+
+    a.click();
+
+    document.body.removeChild(a);
+
+    URL.revokeObjectURL(url);
+
+}
+
+
+/* OPEN FILE */
+
+function openPythonFile(event) {
+
+    const file =
+    event.target.files[0];
+
+    if (!file) return;
+
+    const reader =
+    new FileReader();
+
+    reader.onload =
+    function(e) {
+
+        editor.setValue(
+        e.target.result
+        );
+
+    };
+
+    reader.readAsText(file);
+
+}
+
+
+/* LOAD EXAMPLE */
+
+function loadExample() {
+
+    editor.setValue(`
+
+# Hyper Python Compiler Example
+
+
+# Dictionary
+
+student = {
+
+    "name": "Hubby",
+
+    "age": 20,
+
+    "skills": [
+
+        "Python",
+
+        "HTML",
+
+        "AI"
+
+    ]
+
+}
+
+
+print(
+    "Student:",
+    student
+)
+
+
+# List
+
+numbers = [
+    1,
+    2,
+    3,
+    4,
+    5
+]
+
+
+# Loop
+
+for number in numbers:
+
+    print(
+        "Number:",
+        number
+    )
+
+
+# Function
+
+def square(x):
+
+    return x * x
+
+
+print(
+    "Square:",
+    square(10)
+)
+
+
+# Class
+
+class Car:
+
+    def __init__(
+        self,
+        brand
+    ):
+
+        self.brand = brand
+
+
+    def show(self):
+
+        return (
+            "Car: "
+            + self.brand
+        )
+
+
+car =
+Car("Lamborghini")
+
+
+print(
+    car.show()
+)
+
+`);
+
+}
+
+
+/* THEME */
+
+function toggleTheme() {
+
+    document.body
+    .classList
+    .toggle("light");
+
+
+    if (
+        document.body
+        .classList
+        .contains("light")
+    ) {
+
+        editor.setOption(
+            "theme",
+            "default"
+        );
+
+    }
+
+    else {
+
+        editor.setOption(
+            "theme",
+            "dracula"
+        );
+
+    }
+
+}
+
+
+/* START PYTHON */
+
+loadPython();
+
+</script>
+
+</body>
+</html>
