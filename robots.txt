@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://unknoen786-boop.github.io/hyper-python-compiler/sitemap.xml
